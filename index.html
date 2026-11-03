@@ -71,7 +71,7 @@ const WEEKLY={
  GROUND:[
   [['07:30','Pascal'],['08:30','Pascal'],['14:30','Julieta'],['17:30','Tomás'],['18:30','Tomás'],['19:30','Tomás']],
   [['07:00','Jorge'],['08:00','Jorge'],['14:15','Toño'],['18:00','Laura'],['19:00','Laura'],['20:00','Laura']],
-  [['07:30','Pascal'],['08:30','Pascal'],['14:30','Andrea'],['17:30',null],['18:30',null],['19:30',null]],
+  [['07:30','Pascal'],['08:30','Pascal'],['14:30','Andrea'],['17:30','Paula'],['18:30','Paula'],['19:30','Paula']],
   [['07:00','Antonio'],['08:00','Antonio'],['14:15','Lara'],['18:00','Xabi'],['19:00','Xabi'],['20:00','Xabi']],
   [['07:30','Lara'],['08:30','Lara'],['14:30','Andrea'],['17:30','Jose Luis'],['18:30','Jose Luis'],['19:30','Jose Luis']],
   [['10:00',null],['11:00',null],['12:00',null]]
@@ -99,9 +99,9 @@ const ROOT_PLAN=[
  {morning:['RACK','MOMENTUM','FOCUS','RACK','MOMENTUM','FOCUS'],midday:['MOMENTUM','FOCUS','RACK','FOCUS','RACK','MOMENTUM'],afternoon:['FOCUS','RACK','MOMENTUM','MOMENTUM','FOCUS','RACK']}
 ];
 const ROOT_STRUCTURES={
- DEEP:[['HOW TO','4 min'],['WARM UP','8 min'],['PREP','1:30'],['MOVEMENT','33 min'],['COOL DOWN','3:30']],
+ DEEP:[['HOW TO','4 min'],['WARM UP','8 min'],['PREP','1:30'],['MOVEMENT','33 min'],['COOL DOWN','4 min']],
  FOCUS:[['HOW TO','4 min'],['WARM UP','8 min'],['PREP','2 min'],['MOVEMENT','29 min'],['RETO','2:30'],['COOL DOWN','5 min']],
- BOOST:[['HOW TO','4 min'],['WARM UP','8 min'],['PREP','1:30'],['STRENGTH','12 min'],['PREP','1:30'],['MOVEMENT','12 min'],['BOOST','5 min'],['COOL DOWN','5 min']],
+ BOOST:[['HOW TO','4 min'],['WARM UP','8 min'],['PREP','1:30'],['STRENGTH','12 min'],['PREP','1:30'],['MOVEMENT','12 min'],['BOOST','5 min'],['COOL DOWN','4 min']],
  MOMENTUM:[['HOW TO','4 min'],['WARM UP','8 min'],['PREP','2 min'],['STRENGTH','10 min'],['PREP','1:30'],['MOVEMENT','18 min'],['RETO','2 min'],['COOL DOWN','5 min']],
  RACK:[['HOW TO','4 min'],['WARM UP','8 min'],['PREP','1:30'],['MOVEMENT','30 min'],['REST','1 min entre round 2 y 3'],['COOL DOWN','5 min']],
  MATCH:[['HOW TO','4 min'],['WARM UP','8 min'],['PREP','1 min'],['MOVEMENT','33 min'],['COOL DOWN','4 min']]
@@ -185,6 +185,22 @@ const ROOT_PLAN_IMAGE='data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSU
 
 let currentUser=null,currentView='schedule',currentRoom='ROOT',viewMonday=startOfWeek(new Date()),manageYear=new Date().getFullYear();
 let weekVisibility=loadJSON(LS_WEEK,{}),assignmentOverrides=loadJSON(LS_OVERRIDES,{}),holidays=loadJSON(LS_HOLIDAYS,{});
+// v9.8: eliminar una sola vez asignaciones antiguas guardadas localmente para los tres turnos
+// de GROUND del miércoles. Las nuevas reasignaciones realizadas después seguirán guardándose.
+const LS_PAULA_MIGRATION='melioraPaulaWednesdayV98';
+try {
+ if(localStorage.getItem(LS_PAULA_MIGRATION)!=='done') {
+  for(const key of Object.keys(assignmentOverrides)) {
+   const parts=key.split('|');
+   if(parts.length===3 && parts[1]==='GROUND' && ['17:30','18:30','19:30'].includes(parts[2])) {
+    const date=parseISO(parts[0]);
+    if(!Number.isNaN(date.getTime()) && iso(date)===parts[0] && date.getDay()===3) delete assignmentOverrides[key];
+   }
+  }
+  saveJSON(LS_OVERRIDES,assignmentOverrides);
+  localStorage.setItem(LS_PAULA_MIGRATION,'done');
+ }
+} catch(e) { /* El prototipo puede ejecutarse sin almacenamiento persistente. */ }
 
 function normalizeUser(s){return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'').toLowerCase()}
 function loadJSON(k,f){try{return JSON.parse(localStorage.getItem(k))??f}catch{return f}}
@@ -373,9 +389,9 @@ function groundPhasesHtml(c){
    '<p><b>'+st.length+' estaciones · '+st.reduce((n,x)=>n+x.length,0)+' ejercicios</b></p>'+
    '<p>'+(c.structure==='GROUND 6'?'4 rondas · 50 segundos de trabajo / 10 segundos de transición. Completar las estaciones en cada ronda.':
    c.structure==='GROUND 4'?'1 ronda · 3 × (40 segundos de trabajo / 20 segundos de transición) por pareja de ejercicios.':
-   '1 ronda · 3 × (45 segundos de trabajo / 15 segundos de transición) por ejercicio.')+'</p>'+
+   '4 rondas · 45 segundos de trabajo / 15 segundos de transición por ejercicio. Cada ronda recorre los 2 ejercicios de las 3 estaciones.')+'</p>'+
    (c.structure==='GROUND 6'&&c.focus==='Lower'?'<p>Los ejercicios unilaterales cambian de lado en cada ronda.</p>':'')+
-   (c.structure==='GROUND 3'&&c.focus==='Lower'?'<p>En ejercicios unilaterales: cada ronda un lado; en la última, mitad del tiempo por lado.</p>':''))
+   (c.structure==='GROUND 3'&&c.focus==='Lower'?'<p>En ejercicios unilaterales: alternar el lado en cada una de las 4 rondas (2 rondas por lado).</p>':''))
    :'<div class="sub">Organización del circuito pendiente para esta semana.</div>';
  const howto='<p>Explicar los ejercicios de cada estación, demostrarlos y ofrecer opciones de peso.</p>'+protocol;
  const circuit=st?(protocol+st.map((ex,i)=>'<p><b>Estación '+(i+1)+'</b><br>'+ex.map((v,j)=>(ex.length>1?(j+1)+'. ':'')+v).join('<br>')+'</p>').join('')):'<div class="sub">Contenido de circuito pendiente para esta semana.</div>';
@@ -387,7 +403,7 @@ function groundPhasesHtml(c){
   '<div class="prep-row"><span>PREP · 1:30</span></div>'+
   groundPhase('MOVEMENT','24 min',circuit)+
   groundPhase('RETO','5 min',reto)+
-  groundPhase('COOL DOWN','5 min','')+
+  groundPhase('COOL DOWN','4 min','')+
   '</div>';
 }
 
